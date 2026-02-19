@@ -14,7 +14,6 @@ build/
 *.class
 *.log
 *.jar
-!gradle/wrapper/gradle-wrapper.jar
 
 # OS
 .DS_Store
@@ -23,3 +22,4 @@ Thumbs.db
 # Environment
 .env
 .env.local
+/docs/
