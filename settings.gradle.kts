@@ -34,4 +34,4 @@ plugins {
 }
 
 include(":app")
-include(":shared")
+include(":core")
