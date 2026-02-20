@@ -35,3 +35,6 @@ greynet/                    # Kotlin Multiplatform monorepo
 ## Внутренняя документация
 Контекст проекта находится в private-репо:
 - `../greynet-management/docs/product-vision.md`
+
+## Генерация кода
+- Всегда используй `context7` для того, чтобы понять, как устроены используемые библиотеки
