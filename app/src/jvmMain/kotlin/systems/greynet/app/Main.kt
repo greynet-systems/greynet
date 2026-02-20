@@ -8,14 +8,12 @@ import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.http.*
-import io.ktor.serialization.kotlinx.json.*
-
-actual fun platformName(): String = "JVM ${System.getProperty("java.version")}"
+//import io.ktor.serialization.kotlinx.json.*
 
 fun main() {
     embeddedServer(Netty, port = 8080) {
         install(ContentNegotiation) {
-            json()
+//            json()
         }
         install(StatusPages) {
             exception<Throwable> { call, cause ->
@@ -27,7 +25,7 @@ fun main() {
         }
         routing {
             get("/") {
-                call.respondText("Greynet is running on ${platformName()}")
+//                call.respondText("Greynet is running on ${platformName()}")
             }
         }
     }.start(wait = true)
