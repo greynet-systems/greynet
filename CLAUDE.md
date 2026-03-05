@@ -98,11 +98,12 @@ Tailscale), но зато:
 
 ### Ключевые технологии
 
-- **zapret2** — основной antiDPI движок (NFQUEUE, nfqws2)
+- **zapret2** — основной antiDPI движок (NFQUEUE, nfqws2). Универсальный обход DPI для всех заблокированных сайтов
+- **youtubeUnblock** (github.com/Waujito/youtubeUnblock) — kernel module для обхода DPI, заточенный под YouTube/Googlevideo
 - **dpi-detector** (github.com/Runnin4ik/dpi-detector) — быстрый детект типов блокировок
 - **Headscale** (headscale.net) — self-hosted Tailscale координатор, mesh VPN
 - **Tailscale client** — на коробке и на устройствах пользователя
-- **ByeDPI** (ciadpi) — отложен, потенциально будущая альтернатива zapret2
+- **ByeDPI** (ciadpi) — отложен; потенциально для Android/Desktop приложения
 
 ### Самодиагностика (после каждого шага)
 
@@ -129,10 +130,28 @@ localhost ── ETH  ──→ [LAN] NanoPi R3S [WAN] ──→ Keenetic # те
 
 ## AntiDPI движки
 
-- **zapret2** — основной движок на роутерной прошивке (NFQUEUE, nfqws2)
-- **ByeDPI** (C, ciadpi) — отложен; потенциально для Android/Desktop приложения
-  - Android: VpnService + byedpi binary
-  - Desktop: subprocess + SOCKS transparent proxy
+### zapret2 (bol-van/zapret2) — основной
+- Userspace, NFQUEUE + nfqws
+- Универсальный обход DPI для всех заблокированных сайтов (TLS SNI фрагментация, fake-пакеты)
+- Обрабатывает только первые N пакетов соединения (connbytes) — низкая нагрузка на CPU
+- На прошивке используется оригинальный zapret v1 (не zapret2), т.к. zapret2 (lua-версия)
+  не работает на FriendlyWrt — `luaL_newstate()` возвращает NULL на статическом бинарнике
+
+### youtubeUnblock (Waujito/youtubeUnblock) — специализированный для YouTube
+- **Kernel module** внутри netfilter — обрабатывает каждый пакет без connbytes-лимита
+- Заточен на YouTube/Googlevideo, быстрее и стабильнее zapret для видеостриминга
+- Умеет работать с QUIC (UDP 443): `--udp-mode=drop` дропает QUIC, браузер фоллбэчит на TCP
+- Дополняет zapret: youtubeUnblock — "снайперская" фиксация для YouTube, zapret — "ковровое" решение для остальных блокировок
+
+### Почему два движка вместе (ADR)
+YouTube агрессивно использует QUIC (UDP 443), который zapret обходит хуже, чем TCP.
+youtubeUnblock работает на уровне ядра и эффективнее обрабатывает YouTube-трафик,
+а zapret покрывает все остальные заблокированные ресурсы (Discord, Instagram и т.д.).
+
+### ByeDPI (C, ciadpi) — отложен
+- Потенциально для Android/Desktop приложения
+- Android: VpnService + byedpi binary
+- Desktop: subprocess + SOCKS transparent proxy
 
 ## Внутренняя документация
 Контекст проекта находится в private-репо:
