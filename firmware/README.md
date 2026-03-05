@@ -1,12 +1,12 @@
 # Firmware: Умная коробка (NanoPi R3S)
 
-Plug-and-play антицензурный прокси-узел на базе FriendlyWrt (OpenWrt).
+Plug-and-play антицензурный прокси-узел на базе OpenWrt.
 
 ## Железо
 
 - **NanoPi R3S** (RockChip RK3566, aarch64)
 - 2× Ethernet: WAN (eth0), LAN (eth1)
-- FriendlyWrt (OpenWrt), Linux 6.1.57
+- OpenWrt 25.12.0, Linux 6.12.71
 
 ## Схема подключения
 
@@ -42,7 +42,7 @@ ssh root@g-vpn 'sh -s' < firmware/scripts/bootstrap.sh
 
 Воткнуть кабель от LAN-порта роутера в порт **WAN** на NanoPi R3S (ближе к USB-C).
 
-Дефолтная конфигурация FriendlyWrt:
+Дефолтная конфигурация OpenWrt (после bootstrap):
 - **eth0 (WAN)** — DHCP client, получает IP от роутера
 - **eth1 (LAN)** — br-lan, static 192.168.2.1/24
 

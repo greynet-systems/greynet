@@ -134,8 +134,9 @@ localhost ── ETH  ──→ [LAN] NanoPi R3S [WAN] ──→ Keenetic # те
 - Userspace, NFQUEUE + nfqws
 - Универсальный обход DPI для всех заблокированных сайтов (TLS SNI фрагментация, fake-пакеты)
 - Обрабатывает только первые N пакетов соединения (connbytes) — низкая нагрузка на CPU
-- На прошивке используется оригинальный zapret v1 (не zapret2), т.к. zapret2 (lua-версия)
-  не работает на FriendlyWrt — `luaL_newstate()` возвращает NULL на статическом бинарнике
+- На прошивке используется zapret2 v0.9.4.4 с кастомным бинарником nfqws2 (Lua 5.4 вместо LuaJIT)
+- LuaJIT не работает на aarch64 OpenWrt 25.12 — `luaL_newstate()` NULL после raw sockets init
+- Кросс-компиляция: `infra/zapret2/build-nfqws2/Dockerfile`
 
 ### youtubeUnblock (Waujito/youtubeUnblock) — специализированный для YouTube
 - **Kernel module** внутри netfilter — обрабатывает каждый пакет без connbytes-лимита
