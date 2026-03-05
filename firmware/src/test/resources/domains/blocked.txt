@@ -1,0 +1,4 @@
+# Заблокированные домены (полная блокировка)
+rutracker.org
+pornhub.com
+linkedin.com

@@ -35,3 +35,4 @@ plugins {
 
 include(":app")
 include(":core")
+include(":firmware")

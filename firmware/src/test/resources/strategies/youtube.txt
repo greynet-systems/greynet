@@ -1,0 +1,26 @@
+# Стратегии для YouTube (замедление, а не блокировка)
+# Формат: аргументы nfqws (без --qnum)
+
+# Fake + split по SNI
+--dpi-desync=fake,split2 --dpi-desync-ttl=5
+
+# Fake + multisplit
+--dpi-desync=fake,multisplit --dpi-desync-split-pos=1,midsld --dpi-desync-ttl=5
+
+# Fake + md5sig fooling
+--dpi-desync=fake --dpi-desync-ttl=6 --dpi-desync-fooling=md5sig
+
+# Fake + badsum fooling
+--dpi-desync=fake --dpi-desync-ttl=6 --dpi-desync-fooling=badsum
+
+# Fake + multisplit с orig-ttl
+--dpi-desync=fake,multisplit --dpi-desync-split-pos=1,midsld --dpi-desync-ttl=5 --orig-ttl=1
+
+# Split2 простой
+--dpi-desync=split2
+
+# Fake TTL=3
+--dpi-desync=fake --dpi-desync-ttl=3
+
+# Fake TTL=7 + md5sig
+--dpi-desync=fake --dpi-desync-ttl=7 --dpi-desync-fooling=md5sig

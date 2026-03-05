@@ -1,0 +1,39 @@
+# Базовые стратегии обхода DPI для заблокированных сайтов
+# Формат: аргументы nfqws (без --qnum)
+# Строки с # — комментарии
+
+# Фрагментация TLS ClientHello
+--dpi-desync=split2
+
+# Fake + split
+--dpi-desync=fake,split2 --dpi-desync-ttl=3
+
+# Fake + multisplit по позициям
+--dpi-desync=fake,multisplit --dpi-desync-split-pos=1,midsld --dpi-desync-ttl=5
+
+# Fake с fooling md5sig
+--dpi-desync=fake --dpi-desync-ttl=6 --dpi-desync-fooling=md5sig
+
+# Fake с fooling badsum
+--dpi-desync=fake --dpi-desync-ttl=6 --dpi-desync-fooling=badsum
+
+# Fake с fooling md5sig + badseq
+--dpi-desync=fake --dpi-desync-ttl=4 --dpi-desync-fooling=md5sig,badseq
+
+# Split с seqovl
+--dpi-desync=multisplit --dpi-desync-split-pos=1,midsld
+
+# Fake + orig-ttl
+--dpi-desync=fake --dpi-desync-ttl=5 --orig-ttl=1
+
+# Fake TTL=1
+--dpi-desync=fake --dpi-desync-ttl=1
+
+# Fake TTL=2
+--dpi-desync=fake --dpi-desync-ttl=2
+
+# Fake TTL=7
+--dpi-desync=fake --dpi-desync-ttl=7
+
+# Fake TTL=10
+--dpi-desync=fake --dpi-desync-ttl=10

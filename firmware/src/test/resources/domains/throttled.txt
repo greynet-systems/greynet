@@ -1,0 +1,3 @@
+# Замедляемые домены (throttling)
+youtube.com
+googlevideo.com
