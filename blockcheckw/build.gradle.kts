@@ -135,8 +135,8 @@ dockerTestConfigs.forEach { config ->
                     . \
                 && output=${'$'}(docker run --rm --platform ${config.platform} $imageName) \
                 && echo "${'$'}output" \
-                && echo "${'$'}output" | grep -q "blockcheckw ${config.target} ok" \
-                && echo "PASS: ${config.target}"
+                && echo "${'$'}output" | grep -q "blockcheckw: ${config.target} - OK" \
+                && echo "Docker-test PASSED: ${config.target}"
             """.trimIndent()
         )
     }
