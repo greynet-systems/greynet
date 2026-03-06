@@ -36,3 +36,4 @@ plugins {
 include(":app")
 include(":core")
 include(":firmware")
+include(":blockcheck")
