@@ -29,5 +29,5 @@ local.properties
 
 # Symlinks to private repos
 /docs/
-/blockcheck/blockcheck2.sh
-/blockcheck/zapret2/
+/blockcheckw/blockcheck2.sh
+/blockcheckw/zapret2/
