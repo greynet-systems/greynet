@@ -1,0 +1,95 @@
+flowchart TD
+
+A[Start script] --> B[Init paths and variables]
+B --> C{Config exists?}
+
+C -- no --> D[Copy config.default]
+C -- yes --> E[Load config]
+
+D --> E
+
+E --> F[Load common modules]
+F --> F1[base.sh]
+F --> F2[dialog.sh]
+F --> F3[elevate.sh]
+F --> F4[fwtype.sh]
+F --> F5[virt.sh]
+
+F --> G[check_system]
+
+G --> H{Detect OS}
+
+H -->|Linux| H1[Select nfqws2 + iptables/nftables]
+H -->|FreeBSD| H2[Select dvtws2 + ipfw]
+H -->|OpenBSD| H3[Select dvtws2 + pf]
+H -->|Cygwin| H4[Select winws2 + windivert]
+H -->|Other| HX[Exit unsupported]
+
+H1 --> I
+H2 --> I
+H3 --> I
+H4 --> I
+
+I[check_already_running]
+
+I --> J{DPI bypass already running?}
+
+J -->|yes| J1[Show warning]
+J -->|no| K
+
+J1 --> K
+
+K[check_prerequisites]
+
+K --> L{Required binaries exist?}
+
+L -->|no| L1[Exit with error]
+L -->|yes| M
+
+M --> N{Firewall type}
+
+N -->|iptables| N1[Check NFQUEUE]
+N -->|nftables| N2[Check nft queue]
+N -->|ipfw| N3[Check ipfw modules]
+N -->|pf| N4[Check pf availability]
+
+N1 --> O
+N2 --> O
+N3 --> O
+N4 --> O
+
+O[Network tools setup]
+O --> O1[Detect netcat]
+O --> O2[DNS tools check]
+
+O --> P[DNS resolving subsystem]
+
+P --> P1[mdig cache]
+P --> P2[DoH resolve]
+P --> P3[DNS lookup]
+
+P --> Q[Curl capability checks]
+
+Q --> Q1[TLS1.3 support]
+Q --> Q2[HTTP3 support]
+Q --> Q3[tls-max support]
+Q --> Q4[connect-to support]
+
+Q --> R[Firewall rule preparation]
+
+R -->|iptables| R1[ipt_scheme]
+R -->|nftables| R2[nft_scheme]
+R -->|ipfw| R3[ipfw rules]
+R -->|pf| R4[pf anchors]
+
+R --> S[Network testing]
+
+S --> S1[curl_test_http]
+S --> S2[curl_test_https_tls12]
+S --> S3[curl_test_https_tls13]
+S --> S4[curl_test_http3]
+
+S --> T[Results]
+
+T --> U[Cleanup]
+U --> V[Exit]

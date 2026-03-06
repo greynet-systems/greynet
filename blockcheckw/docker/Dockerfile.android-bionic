@@ -1,0 +1,6 @@
+# TODO: androidNative линкуется с Bionic libc — нужен образ с NDK sysroot
+# Пока только компиляция, без запуска
+FROM debian:bookworm-slim
+ARG BINARY_PATH
+COPY --chmod=755 ${BINARY_PATH} /app/blockcheckw
+ENTRYPOINT ["/app/blockcheckw"]
