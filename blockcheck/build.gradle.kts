@@ -28,6 +28,12 @@ kotlin {
     }
 
     applyDefaultHierarchyTemplate()
+
+    sourceSets {
+        commonMain.dependencies {
+            implementation(libs.kotlinx.coroutines.core)
+        }
+    }
 }
 
 data class DockerTestConfig(
