@@ -93,11 +93,26 @@ val dockerTestConfigs = listOf(
 
 val dockerImageName = "blockcheckw-test"
 
+val registerQemuBinfmt = tasks.register<Exec>("registerQemuBinfmt") {
+    group = "verification"
+    description = "Registers QEMU binfmt handlers for cross-platform Docker tests"
+
+    onlyIf {
+        !File("/proc/sys/fs/binfmt_misc/qemu-aarch64").exists()
+    }
+
+    commandLine("docker", "run", "--rm", "--privileged", "multiarch/qemu-user-static", "--reset", "-p", "yes")
+}
+
 dockerTestConfigs.forEach { config ->
     tasks.register<Exec>(name = config.dockerTaskName) {
         group = "verification"
         description = "Build and run blockcheckw in Docker for ${config.target}"
         dependsOn(config.linkTaskName)
+
+        if (config.platform.contains("arm64")) {
+            dependsOn(registerQemuBinfmt)
+        }
 
         val binaryFile = layout.projectDirectory.file(config.binaryPath)
         val imageName = "$dockerImageName:${config.target}"
