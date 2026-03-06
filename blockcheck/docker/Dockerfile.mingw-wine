@@ -1,0 +1,9 @@
+# TODO: mingwX64 — запуск через Wine, долго и flaky
+FROM debian:bookworm-slim
+RUN dpkg --add-architecture i386 \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends wine64 \
+    && rm -rf /var/lib/apt/lists/*
+ARG BINARY_PATH
+COPY --chmod=755 ${BINARY_PATH} /app/blockcheck.exe
+ENTRYPOINT ["wine64", "/app/blockcheck.exe"]

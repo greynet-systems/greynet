@@ -22,4 +22,10 @@ Thumbs.db
 # Environment
 .env
 .env.local
+
+# Local config (API keys, personal paths)
+.mcp.json
+local.properties
+
+# Symlinks to private repos
 /docs/

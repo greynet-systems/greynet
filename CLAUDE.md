@@ -116,17 +116,17 @@ Tailscale), но зато:
 ### Dev-окружение
 
 ```
-localhost ── WiFi ──→ XiaomiPhone (мобильный интернет)     # основной, не трогаем!
-localhost ── ETH  ──→ [LAN] NanoPi R3S [WAN] ──→ Keenetic # тестовый
-                      192.168.2.1  (g-vpn)       (USB-модем Yota)
+localhost ── WiFi ──→ mobile hotspot                        # основной интернет
+localhost ── ETH  ──→ [LAN] NanoPi R3S [WAN] ──→ router    # тестовый канал
+                      192.168.2.1                (ISP uplink)
 ```
 
-- SSH к коробке: `ssh root@g-vpn` (192.168.2.1, через LAN-порт eth1)
-- Два независимых канала: WiFi (dev) и ETH→коробка→Keenetic (тестовый)
-- NetworkManager на ноутбуке: `never-default=yes` для eth, WiFi остаётся шлюзом
-- zapret2-mcp (`ZAPRET2_MODE=ssh`, `ZAPRET2_SSH_HOST=root@g-vpn`)
-- После factory reset: SSH host key сбрасывается → `ssh-keygen -R g-vpn` + `ssh-copy-id`
-- Публичные DNS (1.1.1.1) заблокированы DPI — настраивать после zapret2
+- SSH к коробке: `ssh root@<box-ip>` (через LAN-порт eth1)
+- Два независимых канала: WiFi (dev) и ETH→коробка→router (тестовый)
+- NetworkManager: `never-default=yes` для eth, WiFi остаётся default gateway
+- zapret2-mcp (`ZAPRET2_MODE=ssh`, `ZAPRET2_SSH_HOST=root@<box-ip>`)
+- После factory reset: SSH host key сбрасывается → `ssh-keygen -R <box-ip>` + `ssh-copy-id`
+- Публичные DNS (1.1.1.1) могут быть заблокированы DPI — настраивать после zapret2
 
 ## AntiDPI движки
 
@@ -153,14 +153,6 @@ youtubeUnblock работает на уровне ядра и эффективн
 - Потенциально для Android/Desktop приложения
 - Android: VpnService + byedpi binary
 - Desktop: subprocess + SOCKS transparent proxy
-
-## Внутренняя документация
-Контекст проекта находится в private-репо:
-- `../greynet-management/docs/product-vision.md`
-
-## Git
-- **НИКОГДА** не делай `git add`, `git commit`, `git push` — коммиты делает только пользователь
-- Не добавляй `Co-Authored-By` и любые упоминания Claude в коммитах
 
 ## Генерация кода
 - Всегда используй `context7` для того, чтобы понять, как устроены используемые библиотеки
