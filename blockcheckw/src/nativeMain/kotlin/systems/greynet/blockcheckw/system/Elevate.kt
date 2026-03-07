@@ -12,6 +12,7 @@ import kotlin.system.exitProcess
 fun requireRoot(argv: Array<String>) {
     if (geteuid() == 0u) return
 
+    println()
     println("* checking privileges")
     println("root is required")
 
