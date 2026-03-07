@@ -13,6 +13,7 @@ import systems.greynet.blockcheckw.system.startBackground
 
 private const val NFQWS2_ARM64 = "/opt/zapret2/binaries/linux-arm64/nfqws2"
 private const val NFQWS2_X86_64 = "/opt/zapret2/binaries/linux-x86_64/nfqws2"
+private const val ZAPRET_BASE = "/opt/zapret2"
 
 sealed interface Nfqws2Error {
     data class StartFailed(val reason: String) : Nfqws2Error
@@ -30,7 +31,13 @@ fun detectNfqws2Path(): String = memScoped {
 
 fun startNfqws2(qnum: Int, strategyArgs: List<String>): Either<Nfqws2Error, BackgroundProcess> {
     val nfqws2 = detectNfqws2Path()
-    val cmd = listOf(nfqws2, "--qnum=$qnum", "--fwmark=0x10000000") + strategyArgs
+    val cmd = listOf(
+        nfqws2,
+        "--qnum=$qnum",
+        "--fwmark=0x10000000",
+        "--lua-init=@$ZAPRET_BASE/lua/zapret-lib.lua",
+        "--lua-init=@$ZAPRET_BASE/lua/zapret-antidpi.lua",
+    ) + strategyArgs
     val process = startBackground(cmd)
     return if (process.pid > 0) process.right()
     else Nfqws2Error.StartFailed("fork() failed for nfqws2").left()

@@ -2,6 +2,7 @@ package systems.greynet.blockcheckw
 
 import systems.greynet.blockcheckw.network.*
 import systems.greynet.blockcheckw.pipeline.*
+import systems.greynet.blockcheckw.system.checkAlreadyRunning
 import systems.greynet.blockcheckw.system.requireRoot
 
 fun main(args: Array<String>) {
@@ -10,10 +11,11 @@ fun main(args: Array<String>) {
         return
     }
 
-    val domain = "rutracker.ru"
+    val domain = "rutracker.org"
 
     // FIXME: перезапускает весь бинарь, поэтому bypass тесты прогоняются два раза
     requireRoot(args)
+    checkAlreadyRunning()
 
     println()
     val ipInfo = detectIpInfo()
@@ -57,23 +59,60 @@ fun main(args: Array<String>) {
         return
     }
 
-    val strategy = listOf("--dpi-desync=split2")
+    val strategies = mapOf(
+        Protocol.HTTP to listOf(
+            listOf("--payload=http_req", "--lua-desync=hostfakesplit:ip_ttl=7:repeats=1"),
+            listOf("--payload=http_req", "--lua-desync=hostfakesplit:tcp_md5:repeats=1"),
+            listOf("--payload=http_req", "--lua-desync=fake:blob=fake_default_http:tcp_md5:repeats=1",
+                "--payload=empty", "--out-range=<s1", "--lua-desync=send:tcp_md5"),
+            listOf("--in-range=-s1", "--lua-desync=oob:urp=b"),
+        ),
+        Protocol.HTTPS_TLS12 to listOf(
+            listOf("--payload=tls_client_hello",
+                "--lua-desync=fake:blob=fake_default_tls:tcp_md5:tls_mod=rnd,dupsid,padencap:repeats=1"),
+            listOf("--payload=tls_client_hello",
+                "--lua-desync=hostfakesplit:midhost=midsld:tcp_md5:repeats=1"),
+            listOf("--payload=tls_client_hello",
+                "--lua-desync=fake:blob=fake_default_tls:tcp_ts=-1000:repeats=1"),
+        ),
+        Protocol.HTTPS_TLS13 to listOf(
+            listOf("--payload=tls_client_hello",
+                "--lua-desync=fake:blob=fake_default_tls:tcp_md5:tls_mod=rnd,dupsid,padencap:repeats=1"),
+            listOf("--payload=tls_client_hello",
+                "--lua-desync=hostfakesplit:midhost=midsld:tcp_md5:repeats=1"),
+            listOf("--payload=tls_client_hello",
+                "--lua-desync=fake:blob=fake_default_tls:tcp_ts=-1000:repeats=1"),
+        ),
+    )
 
     for ((name, protocol, _) in blockedProtocols) {
+        val candidates = strategies[protocol] ?: continue
         println()
-        println("=== bypass test: $name с ${strategy.joinToString(" ")} ===")
+        println("=== bypass test: $name ===")
 
-        val params = StrategyTestParams(
-            domain = domain,
-            strategyArgs = strategy,
-            protocol = protocol,
-        )
+        var found = false
+        for (strategy in candidates) {
+            println("  trying: ${strategy.joinToString(" ")}")
 
-        val result = testStrategy(params)
+            val params = StrategyTestParams(
+                domain = domain,
+                strategyArgs = strategy,
+                protocol = protocol,
+            )
 
-        result.fold(
-            ifLeft = { error -> println("ERROR: ${strategyTestErrorToString(error)}") },
-            ifRight = { testResult -> println(strategyTestResultToString(testResult)) },
-        )
+            val result = testStrategy(params)
+
+            result.fold(
+                ifLeft = { error -> println("  ERROR: ${strategyTestErrorToString(error)}") },
+                ifRight = { testResult ->
+                    println("  ${strategyTestResultToString(testResult)}")
+                    if (testResult is StrategyTestResult.Success) found = true
+                },
+            )
+
+            if (found) break
+        }
+
+        if (!found) println("  no working strategy found for $name")
     }
 }

@@ -81,6 +81,10 @@ fun interpretCurlResult(result: CurlResult, domain: String): CurlVerdict = when 
     result.httpCode != null ->
         CurlVerdict.Available
 
+    // HTTPS без -D: exitCode=0, httpCode=null → успешное подключение
+    result.exitCode == 0 ->
+        CurlVerdict.Available
+
     else ->
         CurlVerdict.Unavailable(result.exitCode)
 }
