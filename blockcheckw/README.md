@@ -82,7 +82,7 @@ Parallel-mode (per-worker правила):
 
 ### Worker + ParallelRunner (`pipeline/`)
 
-Параллельный прогон стратегий через coroutines с изоляцией по source port.
+Параллельный прогон стратегий через pthreads + атомарную очередь задач с изоляцией по source port.
 
 Каждый воркер полностью изолирован:
 - свой `--local-port` для curl (30000 + id)
@@ -96,22 +96,31 @@ Worker 1: curl --local-port 30001 → nftables: sport 30001 → queue 201 → nf
 Worker N: curl --local-port 3000N → nftables: sport 3000N → queue 20N → nfqws2 (стратегия N)
 ```
 
-Оркестратор:
-1. DNS-резолв (один раз, до batch-ей)
+Оркестратор (pthreads, без coroutines):
+1. DNS-резолв (один раз, до запуска потоков)
 2. `prepareTable()` — создать таблицу
-3. Разбить стратегии на batch-и по `workerCount` (default: 16)
-4. Каждый batch — N воркеров параллельно через `async`
-5. `dropTable()` — cleanup
+3. `pthread_create` × N потоков, каждый берёт задачи из `AtomicInt`-счётчика (lock-free)
+4. Поток: `fetchAndAdd(1)` → индекс стратегии → `executeWorker()` → запись результата → повтор
+5. `pthread_join` × N — ждём все потоки
+6. `dropTable()` — cleanup
 
-#### Особенности POSIX-параллельности
+В отличие от предыдущей batch-модели с `Dispatchers.Default` (пул = число ядер CPU),
+pthreads дают реальную параллельность: 16 потоков ждут сеть одновременно,
+ядра CPU не являются bottleneck для IO-bound нагрузки.
 
-Параллельность построена на `fork()`/`execvp()`, а не на корутинах.
-`Dispatchers.Default` в Kotlin/Native использует пул потоков = числу ядер CPU,
-но каждый воркер блокирует поток на POSIX-вызовах (`fork`, `read`, `waitpid`, `usleep`),
-поэтому реальная параллельность ограничена числом потоков в пуле, а не значением `workerCount`.
-Batch из 16 воркеров на 4-ядерном NanoPi выполняется по ~4 штуки за раз.
+#### Потокобезопасность
 
-Ключевые моменты:
+| Ресурс | Механизм |
+|--------|----------|
+| `strategies: List<...>` | Read-only, безопасно |
+| `nextIndex: AtomicInt` | Lock-free |
+| `results[idx]` | Каждый idx пишет ровно один поток |
+| `println()` | `pthread_mutex` |
+| nftables правила | Уникальный sport+qnum на слот |
+| fork/pipe | `FD_CLOEXEC` предотвращает утечку fd |
+
+#### Ключевые моменты POSIX
+
 - **FD_CLOEXEC на pipe**: `runProcess()` (curl) создаёт pipe для stdout/stderr.
   Без `FD_CLOEXEC` дочерние процессы nfqws2 (запущенные через `startBackground`/`fork`)
   наследуют write-end этих pipe. Когда curl завершается, pipe не закрывается,
@@ -169,5 +178,4 @@ UNAVAILABLE (curl exit code=35)
 
 ## Что дальше
 
-- Переход на pipeline-модель (пул слотов вместо batch-ей) для реальной параллельности
 - Тесты на параллельность и POSIX-корректность
