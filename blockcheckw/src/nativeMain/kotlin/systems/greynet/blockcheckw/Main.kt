@@ -1,7 +1,12 @@
+@file:OptIn(ExperimentalForeignApi::class)
+
 package systems.greynet.blockcheckw
 
+import kotlinx.cinterop.ExperimentalForeignApi
+import platform.posix.geteuid
 import systems.greynet.blockcheckw.network.*
 import systems.greynet.blockcheckw.pipeline.*
+import kotlin.system.exitProcess
 
 fun main(args: Array<String>) {
     if ("--healthcheck" in args) {
@@ -48,6 +53,14 @@ fun main(args: Array<String>) {
         println()
         println("Все протоколы доступны без bypass — стратегии не нужны.")
         return
+    }
+
+    println()
+    println("* checking privileges")
+    if (geteuid() != 0u) {
+        println("ERROR: root is required for bypass tests (nftables + nfqws2)")
+        println("run as: sudo blockcheckw.kexe")
+        exitProcess(2)
     }
 
     val strategy = listOf("--dpi-desync=split2")

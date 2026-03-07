@@ -44,6 +44,7 @@ private fun readFdToString(fd: Int): String {
     return sb.toString()
 }
 
+// TODO: убедиться, что мы не изобрели велосипед
 fun runProcess(command: List<String>): ProcessResult {
     val stdoutPipe = IntArray(2)
     val stderrPipe = IntArray(2)
