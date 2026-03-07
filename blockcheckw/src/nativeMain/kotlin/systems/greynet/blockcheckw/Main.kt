@@ -1,5 +1,6 @@
 package systems.greynet.blockcheckw
 
+import arrow.core.getOrElse
 import systems.greynet.blockcheckw.network.*
 import systems.greynet.blockcheckw.pipeline.*
 import systems.greynet.blockcheckw.system.checkAlreadyRunning
@@ -21,6 +22,17 @@ fun main(args: Array<String>) {
     val ipInfo = detectIpInfo()
     println("=== blockcheckw: тестирование $domain ===")
     println("ISP: ${ipInfo?.let { ipInfoToString(it) } ?: "unknown"}")
+    println()
+
+    // --- DNS-резолв один раз ---
+    val ips = resolveIpv4(domain).fold(
+        ifLeft = { error ->
+            println("DNS error: ${dnsErrorToString(error)}")
+            return
+        },
+        ifRight = { it },
+    )
+    println("resolved $domain -> ${ips.joinToString(", ")}")
     println()
 
     // --- Проверка без bypass ---
@@ -85,34 +97,23 @@ fun main(args: Array<String>) {
         ),
     )
 
+    val parallelConfig = ParallelConfig(workerCount = 8)
+
     for ((name, protocol, _) in blockedProtocols) {
         val candidates = strategies[protocol] ?: continue
         println()
-        println("=== bypass test: $name ===")
+        println("=== bypass test: $name (parallel, ${minOf(candidates.size, parallelConfig.workerCount)} workers) ===")
 
-        var found = false
-        for (strategy in candidates) {
-            println("  trying: ${strategy.joinToString(" ")}")
+        val results = runParallel(domain, protocol, candidates, ips, parallelConfig)
 
-            val params = StrategyTestParams(
-                domain = domain,
-                strategyArgs = strategy,
-                protocol = protocol,
-            )
-
-            val result = testStrategy(params)
-
-            result.fold(
-                ifLeft = { error -> println("  ERROR: ${strategyTestErrorToString(error)}") },
-                ifRight = { testResult ->
-                    println("  ${strategyTestResultToString(testResult)}")
-                    if (testResult is StrategyTestResult.Success) found = true
-                },
-            )
-
-            if (found) break
+        val success = results.firstOrNull { r ->
+            r.result.getOrElse { null } is StrategyTestResult.Success
         }
 
-        if (!found) println("  no working strategy found for $name")
+        if (success != null) {
+            println("  => working strategy for $name: ${success.strategyArgs.joinToString(" ")}")
+        } else {
+            println("  no working strategy found for $name")
+        }
     }
 }
