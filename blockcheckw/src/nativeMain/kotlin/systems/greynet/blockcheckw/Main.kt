@@ -1,6 +1,8 @@
 package systems.greynet.blockcheckw
 
 import arrow.core.getOrElse
+import kotlin.time.measureTimedValue
+import kotlin.time.DurationUnit
 import systems.greynet.blockcheckw.network.*
 import systems.greynet.blockcheckw.pipeline.*
 import systems.greynet.blockcheckw.system.checkAlreadyRunning
@@ -9,6 +11,14 @@ import systems.greynet.blockcheckw.system.requireRoot
 fun main(args: Array<String>) {
     if ("--healthcheck" in args) {
         println("blockcheckw: ${getPlatform()} - OK")
+        return
+    }
+
+    if ("--count" in args) {
+        for (p in Protocol.entries) {
+            val strategies = generateStrategies(p)
+            println("${p.name}: ${strategies.size} strategies")
+        }
         return
     }
 
@@ -71,47 +81,69 @@ fun main(args: Array<String>) {
         return
     }
 
-    val strategies = mapOf(
-        Protocol.HTTP to listOf(
-            listOf("--payload=http_req", "--lua-desync=hostfakesplit:ip_ttl=7:repeats=1"),
-            listOf("--payload=http_req", "--lua-desync=hostfakesplit:tcp_md5:repeats=1"),
-            listOf("--payload=http_req", "--lua-desync=fake:blob=fake_default_http:tcp_md5:repeats=1",
-                "--payload=empty", "--out-range=<s1", "--lua-desync=send:tcp_md5"),
-            listOf("--in-range=-s1", "--lua-desync=oob:urp=b"),
-        ),
-        Protocol.HTTPS_TLS12 to listOf(
-            listOf("--payload=tls_client_hello",
-                "--lua-desync=fake:blob=fake_default_tls:tcp_md5:tls_mod=rnd,dupsid,padencap:repeats=1"),
-            listOf("--payload=tls_client_hello",
-                "--lua-desync=hostfakesplit:midhost=midsld:tcp_md5:repeats=1"),
-            listOf("--payload=tls_client_hello",
-                "--lua-desync=fake:blob=fake_default_tls:tcp_ts=-1000:repeats=1"),
-        ),
-        Protocol.HTTPS_TLS13 to listOf(
-            listOf("--payload=tls_client_hello",
-                "--lua-desync=fake:blob=fake_default_tls:tcp_md5:tls_mod=rnd,dupsid,padencap:repeats=1"),
-            listOf("--payload=tls_client_hello",
-                "--lua-desync=hostfakesplit:midhost=midsld:tcp_md5:repeats=1"),
-            listOf("--payload=tls_client_hello",
-                "--lua-desync=fake:blob=fake_default_tls:tcp_ts=-1000:repeats=1"),
-        ),
-    )
-
     val parallelConfig = ParallelConfig(workerCount = 8)
 
+    // FIXME: зависает консоль после какого-то времени(на RS3 и даже на ноутбуке). Интересное наблюдение: после
+    //  остановки выполнения, ноутбук не перестал взлетать на кулерах. Перепроверил на холодную - не воспроизвелось,
+    //  но выполнение (во всяком случае вывод в консоль) - фризится после непродолжительного исполнения - ФАКТ.
+    //  Причём, на одних и тех же стратегиях(плюс-минус). Попробуем исключить hostfakesplit.
+    /**
+     *   [worker] --payload=http_req --lua-desync=hostfakesplit:nofake1:ip_autottl=-2,3-20:repeats=1
+     *     FAILED: UNAVAILABLE (curl exit code=28)
+     *   [worker] --payload=http_req --lua-desync=hostfakesplit:nofake1:ip_autottl=-2,3-20:repeats=1 --payload=empty --out-range=s1<d1 --lua-desync=pktmod:ip_ttl=1
+     *     FAILED: UNAVAILABLE (curl exit code=28)
+     *   [worker] --payload=http_req --lua-desync=hostfakesplit:nofake2:ip_autottl=-2,3-20:repeats=1
+     *     FAILED: UNAVAILABLE (curl exit code=28)
+     *   [worker] --payload=http_req --lua-desync=hostfakesplit:nofake2:ip_autottl=-2,3-20:repeats=1 --payload=empty --out-range=s1<d1 --lua-desync=pktmod:ip_ttl=1
+     *     FAILED: UNAVAILABLE (curl exit code=28)
+     *   [worker] --payload=http_req --lua-desync=hostfakesplit:midhost=midsld:ip_autottl=-2,3-20:repeats=1
+     *     FAILED: UNAVAILABLE (curl exit code=28)
+     *   [worker] --payload=http_req --lua-desync=hostfakesplit:midhost=midsld:ip_autottl=-2,3-20:repeats=1 --payload=empty --out-range=s1<d1 --lua-desync=pktmod:ip_ttl=1
+     *     FAILED: UNAVAILABLE (curl exit code=28)
+     *   [worker] --payload=http_req --lua-desync=hostfakesplit:nofake1:midhost=midsld:ip_autottl=-2,3-20:repeats=1
+     *     FAILED: UNAVAILABLE (curl exit code=28)
+     *   [worker] --payload=http_req --lua-desync=hostfakesplit:nofake1:midhost=midsld:ip_autottl=-2,3-20:repeats=1 --payload=empty --out-range=s1<d1 --lua-desync=pktmod:ip_ttl=1
+     *     FAILED: UNAVAILABLE (curl exit code=28)
+     *   [worker] --payload=http_req --lua-desync=hostfakesplit:nofake2:midhost=midsld:ip_autottl=-2,3-20:repeats=1
+     *     FAILED: UNAVAILABLE (curl exit code=28)
+     */
     for ((name, protocol, _) in blockedProtocols) {
-        val candidates = strategies[protocol] ?: continue
+        val candidates = generateStrategies(protocol)
         println()
-        println("=== bypass test: $name (parallel, ${minOf(candidates.size, parallelConfig.workerCount)} workers) ===")
+        println("=== bypass test: $name (${candidates.size} strategies, ${parallelConfig.workerCount} workers) ===")
 
-        val results = runParallel(domain, protocol, candidates, ips, parallelConfig)
-
-        val success = results.firstOrNull { r ->
-            r.result.getOrElse { null } is StrategyTestResult.Success
+        val (results, duration) = measureTimedValue {
+            runParallel(domain, protocol, candidates, ips, parallelConfig)
         }
 
-        if (success != null) {
-            println("  => working strategy for $name: ${success.strategyArgs.joinToString(" ")}")
+        val successCount = results.count { r ->
+            r.result.getOrElse { null } is StrategyTestResult.Success
+        }
+        val failedCount = results.count { r ->
+            r.result.getOrElse { null } is StrategyTestResult.Failed
+        }
+        val errorCount = results.count { r ->
+            r.result.isLeft() || r.result.getOrElse { null } is StrategyTestResult.Error
+        }
+
+        val totalSec = duration.toLong(DurationUnit.SECONDS)
+        val minutes = totalSec / 60
+        val seconds = totalSec % 60
+        val avgMs = if (results.isNotEmpty()) duration.toLong(DurationUnit.MILLISECONDS) / results.size else 0
+
+        println()
+        println("=== SUMMARY: $name ===")
+        println("strategies: ${candidates.size}")
+        println("success: $successCount")
+        println("failed: $failedCount")
+        println("errors: $errorCount")
+        println("time: ${minutes}m ${seconds}s (avg ${avgMs}ms/strategy)")
+
+        val firstSuccess = results.firstOrNull { r ->
+            r.result.getOrElse { null } is StrategyTestResult.Success
+        }
+        if (firstSuccess != null) {
+            println("  => working strategy for $name: ${firstSuccess.strategyArgs.joinToString(" ")}")
         } else {
             println("  no working strategy found for $name")
         }
