@@ -12,6 +12,9 @@ fun main(args: Array<String>) {
 
     val domain = "rutracker.ru"
 
+    // FIXME: перезапускает весь бинарь, поэтому bypass тесты прогоняются два раза
+    requireRoot(args)
+
     println()
     val ipInfo = detectIpInfo()
     println("=== blockcheckw: тестирование $domain ===")
@@ -53,9 +56,6 @@ fun main(args: Array<String>) {
         println("Все протоколы доступны без bypass — стратегии не нужны.")
         return
     }
-
-    // FIXME: перезапускает весь бинарь, поэтому bypass тесты прогоняются два раза
-    requireRoot(args)
 
     val strategy = listOf("--dpi-desync=split2")
 
