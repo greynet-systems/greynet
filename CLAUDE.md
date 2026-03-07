@@ -9,4 +9,6 @@
 - Придерживайся Функциональной Парадигмы программирования
 
 #### Blockcheckw
-- При написании `blockcheckw` ищи и адаптируй имплементации из `./blockcheckw/blockcheck2.sh`
+- При работе над `blockcheckw` РУКОВОДСТВОВАТЬСЯ данными правилами
+- Ищи и адаптируй имплементации из `./blockcheckw/blockcheck2.sh`
+- СМОТРИ в `infra/zapret2/blockcheck2-kotlin-wrapper.md`
