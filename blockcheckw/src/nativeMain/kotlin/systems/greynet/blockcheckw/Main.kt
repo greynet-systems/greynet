@@ -1,6 +1,7 @@
 package systems.greynet.blockcheckw
 
 import arrow.core.Either
+import systems.greynet.blockcheckw.config.configExists
 
 fun main(args: Array<String>) {
     val healthcheck = "--healthcheck" in args
@@ -15,10 +16,7 @@ fun main(args: Array<String>) {
 }
 
 sealed interface BlockcheckwError
+object ZapretConfigMissing : BlockcheckwError
 
 sealed interface BlockcheckSuccess
 data class ZapretConfig(val domains: List<String>) : BlockcheckSuccess
-
-fun configExists(): Either<BlockcheckwError, ZapretConfig> {
-    TODO("")
-}

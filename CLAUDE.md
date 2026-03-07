@@ -10,4 +10,3 @@
 
 #### Blockcheckw
 - При написании `blockcheckw` ищи и адаптируй имплементации из `./blockcheckw/blockcheck2.sh`
-- Сверяйся с `./blockcheckw/PLAN.md`

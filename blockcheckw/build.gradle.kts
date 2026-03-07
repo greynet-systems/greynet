@@ -9,30 +9,12 @@ kotlin {
     linuxArm64 {
         binaries { executable { entryPoint = "systems.greynet.blockcheckw.main" } }
     }
-    // TODO: androidNative бинарники слинковать с Bionic libc, чтобы запускать интеграционки.
-    androidNativeArm64 {
-        binaries { executable { entryPoint = "systems.greynet.blockcheckw.main" } }
-    }
-    androidNativeArm32 {
-        binaries { executable { entryPoint = "systems.greynet.blockcheckw.main" } }
-    }
-    androidNativeX64 {
-        binaries { executable { entryPoint = "systems.greynet.blockcheckw.main" } }
-    }
-    androidNativeX86 {
-        binaries { executable { entryPoint = "systems.greynet.blockcheckw.main" } }
-    }
-    // TODO: для интеграционных тестов: через Wine, долго и flaky, но сделать
-    mingwX64 {
-        binaries { executable { entryPoint = "systems.greynet.blockcheckw.main" } }
-    }
 
     applyDefaultHierarchyTemplate()
 
     sourceSets {
         commonMain.dependencies {
             implementation(libs.kotlinx.coroutines.core)
-            implementation(libs.arrow.core)
         }
     }
 }
