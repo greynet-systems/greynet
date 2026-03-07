@@ -99,9 +99,26 @@ Worker N: curl --local-port 3000N → nftables: sport 3000N → queue 20N → nf
 Оркестратор:
 1. DNS-резолв (один раз, до batch-ей)
 2. `prepareTable()` — создать таблицу
-3. Разбить стратегии на batch-и по `workerCount` (default: 8)
+3. Разбить стратегии на batch-и по `workerCount` (default: 16)
 4. Каждый batch — N воркеров параллельно через `async`
 5. `dropTable()` — cleanup
+
+#### Особенности POSIX-параллельности
+
+Параллельность построена на `fork()`/`execvp()`, а не на корутинах.
+`Dispatchers.Default` в Kotlin/Native использует пул потоков = числу ядер CPU,
+но каждый воркер блокирует поток на POSIX-вызовах (`fork`, `read`, `waitpid`, `usleep`),
+поэтому реальная параллельность ограничена числом потоков в пуле, а не значением `workerCount`.
+Batch из 16 воркеров на 4-ядерном NanoPi выполняется по ~4 штуки за раз.
+
+Ключевые моменты:
+- **FD_CLOEXEC на pipe**: `runProcess()` (curl) создаёт pipe для stdout/stderr.
+  Без `FD_CLOEXEC` дочерние процессы nfqws2 (запущенные через `startBackground`/`fork`)
+  наследуют write-end этих pipe. Когда curl завершается, pipe не закрывается,
+  потому что nfqws2 держит копию fd → `read()` блокируется навсегда → deadlock.
+- **waitpid после kill**: `BackgroundProcess.kill()` отправляет `SIGKILL` и обязательно
+  вызывает `waitpid()` для сбора зомби-процесса. Без этого при тысячах стратегий
+  зомби забивают таблицу процессов ядра.
 
 ## Сборка и запуск
 
@@ -152,5 +169,5 @@ UNAVAILABLE (curl exit code=35)
 
 ## Что дальше
 
-- Генерация стратегий из `blockcheck2.sh` (~2000 комбинаций)
-- Масштабирование workerCount (16-32) после стресс-теста
+- Переход на pipeline-модель (пул слотов вместо batch-ей) для реальной параллельности
+- Тесты на параллельность и POSIX-корректность

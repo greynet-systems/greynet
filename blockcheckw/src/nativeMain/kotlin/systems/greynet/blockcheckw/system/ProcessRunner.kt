@@ -15,7 +15,12 @@ data class BackgroundProcess(val pid: Int) {
 
     fun kill(): Boolean {
         if (pid <= 0) return false
-        return platform.posix.kill(pid, SIGKILL) == 0
+        val killed = kill(pid, SIGKILL) == 0
+        if (killed) {
+            // Собираем зомби-процесс, чтобы не забивать таблицу процессов
+            waitpid(pid, null, 0)
+        }
+        return killed
     }
 
     fun isAlive(): Boolean {
@@ -29,6 +34,10 @@ data class BackgroundProcess(val pid: Int) {
         waitpid(pid, status.ptr, 0)
         (status.value shr 8) and 0xFF
     }
+}
+
+private fun setCloexec(fd: Int) {
+    fcntl(fd, F_SETFD, FD_CLOEXEC)
 }
 
 private fun readFdToString(fd: Int): String {
@@ -54,12 +63,17 @@ fun runProcess(command: List<String>): ProcessResult {
             return ProcessResult(exitCode = -1, stdout = "", stderr = "pipe() failed for stdout")
         }
     }
+    setCloexec(stdoutPipe[0])
+    setCloexec(stdoutPipe[1])
+
     stderrPipe.usePinned { pinned ->
         if (pipe(pinned.addressOf(0)) != 0) {
             close(stdoutPipe[0]); close(stdoutPipe[1])
             return ProcessResult(exitCode = -1, stdout = "", stderr = "pipe() failed for stderr")
         }
     }
+    setCloexec(stderrPipe[0])
+    setCloexec(stderrPipe[1])
 
     val pid = fork()
 

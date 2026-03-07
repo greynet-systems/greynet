@@ -81,32 +81,8 @@ fun main(args: Array<String>) {
         return
     }
 
-    val parallelConfig = ParallelConfig(workerCount = 8)
+    val parallelConfig = ParallelConfig(workerCount = 16) // TODO: поменять на 4 для aarch64
 
-    // FIXME: зависает консоль после какого-то времени(на RS3 и даже на ноутбуке). Интересное наблюдение: после
-    //  остановки выполнения, ноутбук не перестал взлетать на кулерах. Перепроверил на холодную - не воспроизвелось,
-    //  но выполнение (во всяком случае вывод в консоль) - фризится после непродолжительного исполнения - ФАКТ.
-    //  Причём, на одних и тех же стратегиях(плюс-минус). Попробуем исключить hostfakesplit.
-    /**
-     *   [worker] --payload=http_req --lua-desync=hostfakesplit:nofake1:ip_autottl=-2,3-20:repeats=1
-     *     FAILED: UNAVAILABLE (curl exit code=28)
-     *   [worker] --payload=http_req --lua-desync=hostfakesplit:nofake1:ip_autottl=-2,3-20:repeats=1 --payload=empty --out-range=s1<d1 --lua-desync=pktmod:ip_ttl=1
-     *     FAILED: UNAVAILABLE (curl exit code=28)
-     *   [worker] --payload=http_req --lua-desync=hostfakesplit:nofake2:ip_autottl=-2,3-20:repeats=1
-     *     FAILED: UNAVAILABLE (curl exit code=28)
-     *   [worker] --payload=http_req --lua-desync=hostfakesplit:nofake2:ip_autottl=-2,3-20:repeats=1 --payload=empty --out-range=s1<d1 --lua-desync=pktmod:ip_ttl=1
-     *     FAILED: UNAVAILABLE (curl exit code=28)
-     *   [worker] --payload=http_req --lua-desync=hostfakesplit:midhost=midsld:ip_autottl=-2,3-20:repeats=1
-     *     FAILED: UNAVAILABLE (curl exit code=28)
-     *   [worker] --payload=http_req --lua-desync=hostfakesplit:midhost=midsld:ip_autottl=-2,3-20:repeats=1 --payload=empty --out-range=s1<d1 --lua-desync=pktmod:ip_ttl=1
-     *     FAILED: UNAVAILABLE (curl exit code=28)
-     *   [worker] --payload=http_req --lua-desync=hostfakesplit:nofake1:midhost=midsld:ip_autottl=-2,3-20:repeats=1
-     *     FAILED: UNAVAILABLE (curl exit code=28)
-     *   [worker] --payload=http_req --lua-desync=hostfakesplit:nofake1:midhost=midsld:ip_autottl=-2,3-20:repeats=1 --payload=empty --out-range=s1<d1 --lua-desync=pktmod:ip_ttl=1
-     *     FAILED: UNAVAILABLE (curl exit code=28)
-     *   [worker] --payload=http_req --lua-desync=hostfakesplit:nofake2:midhost=midsld:ip_autottl=-2,3-20:repeats=1
-     *     FAILED: UNAVAILABLE (curl exit code=28)
-     */
     for ((name, protocol, _) in blockedProtocols) {
         val candidates = generateStrategies(protocol)
         println()
