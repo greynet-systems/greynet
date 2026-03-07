@@ -11,4 +11,6 @@
 #### Blockcheckw
 - При работе над `blockcheckw` РУКОВОДСТВОВАТЬСЯ данными правилами
 - Ищи и адаптируй имплементации из `./blockcheckw/blockcheck2.sh`
-- СМОТРИ в `infra/zapret2/blockcheck2-kotlin-wrapper.md`
+- СМОТРИ в `infra/zapret2/blockcheck2-kotlin-wrapper.md` - это основной высокоуровневый документ
+- После реализации фичи и подтверждения пользователя, ОБНОВЛЯЙ `./blockcheckw/README.md`, чтобы документация была 
+  всегда актуальной
