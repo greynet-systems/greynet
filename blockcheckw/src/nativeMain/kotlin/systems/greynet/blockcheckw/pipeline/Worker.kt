@@ -13,7 +13,7 @@ import systems.greynet.blockcheckw.worker.*
 data class WorkerSlot(
     val id: Int,
     val qnum: Int,
-    val localPort: Int,
+    val localPortRange: IntRange,
 )
 
 data class WorkerTask(
@@ -26,7 +26,7 @@ data class WorkerTask(
 
 fun executeWorker(task: WorkerTask): Either<StrategyTestError, StrategyTestResult> = either {
     val handle = addWorkerRule(
-        sport = task.slot.localPort,
+        sportRange = task.slot.localPortRange,
         dport = task.protocol.port,
         qnum = task.slot.qnum,
         ips = task.ips,
@@ -40,10 +40,13 @@ fun executeWorker(task: WorkerTask): Either<StrategyTestError, StrategyTestResul
     try {
         usleep(50_000u) // 50ms — дать nfqws2 время на инициализацию
 
+        val portRange = task.slot.localPortRange
+        val localPortArg = "${portRange.first}-${portRange.last}"
+
         val curlResult = when (task.protocol) {
-            Protocol.HTTP -> curlTestHttp(task.domain, localPort = task.slot.localPort, maxTime = "1")
-            Protocol.HTTPS_TLS12 -> curlTestHttpsTls12(task.domain, localPort = task.slot.localPort, maxTime = "1")
-            Protocol.HTTPS_TLS13 -> curlTestHttpsTls13(task.domain, localPort = task.slot.localPort, maxTime = "1")
+            Protocol.HTTP -> curlTestHttp(task.domain, localPort = localPortArg, maxTime = "1")
+            Protocol.HTTPS_TLS12 -> curlTestHttpsTls12(task.domain, localPort = localPortArg, maxTime = "1")
+            Protocol.HTTPS_TLS13 -> curlTestHttpsTls13(task.domain, localPort = localPortArg, maxTime = "1")
         }
 
         val verdict = interpretCurlResult(curlResult, task.domain)

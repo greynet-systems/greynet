@@ -7,7 +7,7 @@ Kotlin/Native, без JVM — один бинарник для x86_64 и arm64 (
 
 ```
 src/nativeMain/kotlin/systems/greynet/blockcheckw/
-├── Main.kt                        — точка входа, запуск тестов
+├── Main.kt                        — точка входа, --healthcheck / --count / --test-parallel
 ├── system/ProcessRunner.kt        — fork/exec/pipe, управление процессами
 ├── network/
 │   ├── CurlRunner.kt             — curl-тесты HTTP/HTTPS, интерпретация результатов
@@ -16,8 +16,10 @@ src/nativeMain/kotlin/systems/greynet/blockcheckw/
 ├── firewall/NftablesRunner.kt     — nftables правила для NFQUEUE
 └── pipeline/
     ├── StrategyTest.kt            — полный цикл тестирования одной стратегии
+    ├── StrategyGenerator.kt       — генерация всех bypass-стратегий
     ├── Worker.kt                  — единица параллельной работы (slot + task)
-    └── ParallelRunner.kt          — оркестратор параллельного запуска
+    ├── ParallelRunner.kt          — оркестратор параллельного запуска
+    └── StressTest.kt              — диагностика параллелизма (--test-parallel)
 ```
 
 ## Компоненты
@@ -65,7 +67,7 @@ Single-mode (один воркер):
 
 Parallel-mode (per-worker правила):
 - `prepareTable()` — создать таблицу `zapret` + chain `postnat` (один раз)
-- `addWorkerRule(sport, dport, qnum, ips)` → `RuleHandle` — правило с match по source port
+- `addWorkerRule(sportRange, dport, qnum, ips)` → `RuleHandle` — правило с match по диапазону source port
 - `removeRule(handle)` — удаление конкретного правила по handle
 - `dropTable()` — удаление всей таблицы после batch
 
@@ -85,16 +87,20 @@ Parallel-mode (per-worker правила):
 Параллельный прогон стратегий через coroutines с изоляцией по source port.
 
 Каждый воркер полностью изолирован:
-- свой `--local-port` для curl (30000 + id)
-- своё nftables-правило с match по `tcp sport`
+- свой диапазон `--local-port` для curl (10 портов на воркер)
+- своё nftables-правило с match по диапазону `tcp sport`
 - свой NFQUEUE номер (200 + id) и отдельный nfqws2-процесс
 
 ```
-Worker 0: curl --local-port 30000 → nftables: sport 30000 → queue 200 → nfqws2 (стратегия A)
-Worker 1: curl --local-port 30001 → nftables: sport 30001 → queue 201 → nfqws2 (стратегия B)
+Worker 0: curl --local-port 30000-30009 → nft: sport 30000-30009 → queue 200 → nfqws2 (стратегия A)
+Worker 1: curl --local-port 30010-30019 → nft: sport 30010-30019 → queue 201 → nfqws2 (стратегия B)
 ...
-Worker N: curl --local-port 3000N → nftables: sport 3000N → queue 20N → nfqws2 (стратегия N)
+Worker N: curl --local-port 300N0-300N9 → nft: sport 300N0-300N9 → queue 20N → nfqws2 (стратегия N)
 ```
+
+Диапазон портов (10 штук на воркер) вместо одного порта решает проблему TCP TIME_WAIT:
+после закрытия TCP-соединения порт уходит в TIME_WAIT на ~60с и `bind()` на него фейлит.
+curl с `--local-port X-Y` автоматически перебирает порты в диапазоне при bind failure.
 
 Оркестратор:
 1. DNS-резолв (один раз, до batch-ей)
@@ -120,6 +126,29 @@ Batch из 16 воркеров на 4-ядерном NanoPi выполняетс
   вызывает `waitpid()` для сбора зомби-процесса. Без этого при тысячах стратегий
   зомби забивают таблицу процессов ядра.
 
+### StressTest (`pipeline/`)
+
+Режим `--test-parallel [workers] [iterations]` для диагностики проблем параллелизма.
+Повторяет одну и ту же стратегию N раз с подробным логированием каждого шага:
+
+```
+[0.113s] [iter 1] START batch of 4 workers
+[0.117s] [iter 1][w0] nft add rule sport=30000-30009 qnum=200
+[0.142s] [iter 1][w0] nfqws2 start pid=6223
+[0.194s] [iter 1][w0] curl start
+[0.355s] [iter 1][w0] curl done exitCode=0 httpCode=307 (160ms)
+[0.356s] [iter 1][w0] nfqws2 kill pid=6223
+[0.485s] [iter 1] DONE batch (371ms) ok=0 fail=4
+```
+
+Таймаут на batch (30с) — при фризе убивает все nfqws2 и логирует где застряло.
+
+Что искать в выводе:
+- **Фриз на curl** → deadlock в `readFdToString` (pipe/fd)
+- **Фриз после 4 воркеров** → thread starvation (`Dispatchers.Default` = числу ядер)
+- **Фриз через N итераций** → утечка fd/зомби
+- **Всё ок** → проблема в объёме стратегий, не в механике
+
 ## Сборка и запуск
 
 ```bash
@@ -131,6 +160,12 @@ blockcheckw.kexe --healthcheck
 
 # запуск (проверка без bypass + параллельный перебор стратегий для заблокированных протоколов)
 blockcheckw.kexe
+
+# стресс-тест параллелизма (4 воркера, 3 итерации — default)
+blockcheckw.kexe --test-parallel
+
+# 8 воркеров, 5 итераций (ищем thread starvation)
+blockcheckw.kexe --test-parallel 8 5
 ```
 
 Пример вывода:
@@ -167,7 +202,25 @@ UNAVAILABLE (curl exit code=35)
 | Desktop Linux | `linuxX64` | работает |
 | NanoPi R3S (OpenWrt) | `linuxArm64` | работает |
 
+## Почему curl, а не ktor-client
+
+HTTP-запросы делаются через `fork()`+`execvp("curl", ...)` — отдельный процесс на каждый запрос.
+Рассматривался переход на ktor-client (CIO или Curl engine), но он не подходит:
+
+1. **Нет `--local-port`** — ни CIO, ни Curl engine ktor не поддерживают `CURLOPT_LOCALPORT`.
+   Привязка к локальному порту критична для маршрутизации через NFQUEUE в nftables.
+2. **Нет выбора TLS-версии** — `CURLOPT_SSLVERSION` не экспонируется.
+   Нужно тестировать TLS 1.2 и TLS 1.3 отдельно.
+3. **+3-8 MB к бинарнику** — текущий бинарник ~2 MB (linuxArm64 release).
+
+fork+exec curl:
+- Полный контроль над всеми curl-опциями
+- OS-уровневый параллелизм (каждый curl — отдельный процесс)
+- Минимальный бинарник, зависимость только от curl CLI (уже есть на OpenWrt)
+
+Альтернатива на будущее: прямой cinterop с libcurl (`curl_easy_init`/`curl_easy_setopt`)
+для in-process HTTP без fork overhead.
+
 ## Что дальше
 
 - Переход на pipeline-модель (пул слотов вместо batch-ей) для реальной параллельности
-- Тесты на параллельность и POSIX-корректность

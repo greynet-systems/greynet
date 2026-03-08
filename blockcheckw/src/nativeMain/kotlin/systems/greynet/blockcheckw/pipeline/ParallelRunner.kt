@@ -5,6 +5,8 @@ import kotlinx.coroutines.*
 import systems.greynet.blockcheckw.firewall.*
 import systems.greynet.blockcheckw.network.*
 
+private const val PORTS_PER_WORKER = 10
+
 data class ParallelConfig(
     val workerCount: Int = 8,
     val baseQnum: Int = 200,
@@ -24,10 +26,11 @@ fun runParallel(
     config: ParallelConfig = ParallelConfig(),
 ): List<StrategyResult> {
     val slots = (0 until config.workerCount).map { i ->
+        val portStart = config.baseLocalPort + i * PORTS_PER_WORKER
         WorkerSlot(
             id = i,
             qnum = config.baseQnum + i,
-            localPort = config.baseLocalPort + i,
+            localPortRange = portStart..(portStart + PORTS_PER_WORKER - 1),
         )
     }
 

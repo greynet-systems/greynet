@@ -27,12 +27,10 @@ private fun toCurlResult(pr: ProcessResult): CurlResult {
     return CurlResult(exitCode = pr.exitCode, httpCode = httpCode, headers = pr.stdout)
 }
 
-// TODO: избавиться от nullability
-private fun localPortArgs(localPort: Int?): List<String> =
-    if (localPort != null) listOf("--local-port", localPort.toString()) else emptyList()
+private fun localPortArgs(localPort: String?): List<String> =
+    if (localPort != null) listOf("--local-port", localPort) else emptyList()
 
-// TODO: избавиться от nullability
-fun curlTestHttp(domain: String, localPort: Int? = null, maxTime: String = "2"): CurlResult {
+fun curlTestHttp(domain: String, localPort: String? = null, maxTime: String = "2"): CurlResult {
     val cmd = listOf(
         "curl", "-SsD", "-", "-A", "Mozilla/5.0",
         "--max-time", maxTime,
@@ -41,8 +39,7 @@ fun curlTestHttp(domain: String, localPort: Int? = null, maxTime: String = "2"):
     return toCurlResult(runProcess(cmd))
 }
 
-// TODO: избавиться от nullability
-fun curlTestHttpsTls12(domain: String, localPort: Int? = null, maxTime: String = "2"): CurlResult {
+fun curlTestHttpsTls12(domain: String, localPort: String? = null, maxTime: String = "2"): CurlResult {
     val cmd = listOf(
         "curl", "-Ss", "-A", "Mozilla/5.0",
         "--max-time", maxTime,
@@ -52,8 +49,7 @@ fun curlTestHttpsTls12(domain: String, localPort: Int? = null, maxTime: String =
     return toCurlResult(runProcess(cmd))
 }
 
-// TODO: избавиться от nullability
-fun curlTestHttpsTls13(domain: String, localPort: Int? = null, maxTime: String = "2"): CurlResult {
+fun curlTestHttpsTls13(domain: String, localPort: String? = null, maxTime: String = "2"): CurlResult {
     val cmd = listOf(
         "curl", "-Ss", "-A", "Mozilla/5.0",
         "--max-time", maxTime,

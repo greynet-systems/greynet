@@ -73,15 +73,20 @@ fun prepareTable(): Either<NftablesError, Unit> {
 
 private val HANDLE_REGEX = Regex("""# handle (\d+)""")
 
-fun addWorkerRule(sport: Int, dport: Int, qnum: Int, ips: List<String>): Either<NftablesError, RuleHandle> {
+fun addWorkerRule(sportRange: IntRange, dport: Int, qnum: Int, ips: List<String>): Either<NftablesError, RuleHandle> {
     val ipSet = ips.joinToString(", ")
+    val sportExpr = if (sportRange.first == sportRange.last) {
+        sportRange.first.toString()
+    } else {
+        "${sportRange.first}-${sportRange.last}"
+    }
 
     val result = runNft(
         listOf(
             "--echo", "--handle",
             "add", "rule", "inet", TABLE_NAME, CHAIN_NAME,
             "meta", "nfproto", "ipv4",
-            "tcp", "sport", sport.toString(),
+            "tcp", "sport", sportExpr,
             "tcp", "dport", dport.toString(),
             "mark", "and", "0x10000000", "==", "0",
             "ip", "daddr", "{ $ipSet }",

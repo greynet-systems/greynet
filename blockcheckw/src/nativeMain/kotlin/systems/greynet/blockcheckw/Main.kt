@@ -22,6 +22,16 @@ fun main(args: Array<String>) {
         return
     }
 
+    if ("--test-parallel" in args) {
+        val idx = args.indexOf("--test-parallel")
+        val workers = args.getOrNull(idx + 1)?.toIntOrNull() ?: 4
+        val iterations = args.getOrNull(idx + 2)?.toIntOrNull() ?: 3
+        requireRoot(args)
+        checkAlreadyRunning()
+        runStressTest(workers, iterations)
+        return
+    }
+
     val domain = "rutracker.org"
 
     // FIXME: перезапускает весь бинарь, поэтому bypass тесты прогоняются два раза
