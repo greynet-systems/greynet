@@ -1,8 +1,6 @@
 package systems.greynet.blockcheckw
 
 import arrow.core.getOrElse
-import kotlin.time.measureTimedValue
-import kotlin.time.DurationUnit
 import systems.greynet.blockcheckw.network.*
 import systems.greynet.blockcheckw.pipeline.*
 import systems.greynet.blockcheckw.system.checkAlreadyRunning
@@ -55,7 +53,6 @@ fun main(args: Array<String>) {
 
     println()
     val ipInfo = detectIpInfo()
-    println("=== blockcheckw: тестирование $domain ===")
     println("ISP: ${ipInfo?.let { ipInfoToString(it) } ?: "unknown"}")
     println()
 
@@ -75,78 +72,85 @@ fun main(args: Array<String>) {
     println("- checking without DPI bypass")
     val httpResult = curlTestHttp(domain)
     val httpVerdict = interpretCurlResult(httpResult, domain)
-    println(verdictToString(httpVerdict))
+    println(baselineVerdictToString(httpVerdict))
 
     println()
     println("* curl_test_https_tls12 ipv4 $domain")
     println("- checking without DPI bypass")
     val tls12Result = curlTestHttpsTls12(domain)
     val tls12Verdict = interpretCurlResult(tls12Result, domain)
-    println(verdictToString(tls12Verdict))
+    println(baselineVerdictToString(tls12Verdict))
 
     println()
     println("* curl_test_https_tls13 ipv4 $domain")
     println("- checking without DPI bypass")
     val tls13Result = curlTestHttpsTls13(domain)
     val tls13Verdict = interpretCurlResult(tls13Result, domain)
-    println(verdictToString(tls13Verdict))
+    println(baselineVerdictToString(tls13Verdict))
 
     // --- Тест bypass-стратегии если заблокировано ---
     val protocols = listOf(
-        Triple("HTTP", Protocol.HTTP, httpVerdict),
-        Triple("HTTPS TLS1.2", Protocol.HTTPS_TLS12, tls12Verdict),
-        Triple("HTTPS TLS1.3", Protocol.HTTPS_TLS13, tls13Verdict),
+        Triple(Protocol.HTTP, Protocol.HTTP.toTestFunc(), httpVerdict),
+        Triple(Protocol.HTTPS_TLS12, Protocol.HTTPS_TLS12.toTestFunc(), tls12Verdict),
+        Triple(Protocol.HTTPS_TLS13, Protocol.HTTPS_TLS13.toTestFunc(), tls13Verdict),
     )
 
+    val summaryReports = mutableListOf<String>()
+
     val blockedProtocols = protocols.filter { (_, _, verdict) -> verdict !is CurlVerdict.Available }
+    val availableProtocols = protocols.filter { (_, _, verdict) -> verdict is CurlVerdict.Available }
+
+    // Доступные без bypass — сразу добавляем в summary
+    for ((_, testFunc, _) in availableProtocols) {
+        summaryReports.add("$testFunc ipv4 $domain : working without bypass")
+    }
 
     if (blockedProtocols.isEmpty()) {
         println()
-        println("Все протоколы доступны без bypass — стратегии не нужны.")
+        println("* SUMMARY")
+        for (report in summaryReports) {
+            println(report)
+        }
         return
     }
 
     val parallelConfig = ParallelConfig(workerCount = 16) // TODO: поменять на 4 для aarch64
 
-    for ((name, protocol, _) in blockedProtocols) {
+    for ((protocol, testFunc, _) in blockedProtocols) {
         val candidates = generateStrategies(protocol)
         println()
-        println("=== bypass test: $name (${candidates.size} strategies, ${parallelConfig.workerCount} workers) ===")
+        println("preparing nfqws2 redirection")
 
-        val (results, duration) = measureTimedValue {
-            runParallel(domain, protocol, candidates, ips, parallelConfig)
-        }
+        val results = runParallel(domain, protocol, candidates, ips, parallelConfig, testFunc)
 
-        val successCount = results.count { r ->
-            r.result.getOrElse { null } is StrategyTestResult.Success
-        }
-        val failedCount = results.count { r ->
-            r.result.getOrElse { null } is StrategyTestResult.Failed
-        }
-        val errorCount = results.count { r ->
-            r.result.isLeft() || r.result.getOrElse { null } is StrategyTestResult.Error
-        }
-
-        val totalSec = duration.toLong(DurationUnit.SECONDS)
-        val minutes = totalSec / 60
-        val seconds = totalSec % 60
-        val avgMs = if (results.isNotEmpty()) duration.toLong(DurationUnit.MILLISECONDS) / results.size else 0
-
-        println()
-        println("=== SUMMARY: $name ===")
-        println("strategies: ${candidates.size}")
-        println("success: $successCount")
-        println("failed: $failedCount")
-        println("errors: $errorCount")
-        println("time: ${minutes}m ${seconds}s (avg ${avgMs}ms/strategy)")
+        println("clearing nfqws2 redirection")
 
         val firstSuccess = results.firstOrNull { r ->
             r.result.getOrElse { null } is StrategyTestResult.Success
         }
         if (firstSuccess != null) {
-            println("  => working strategy for $name: ${firstSuccess.strategyArgs.joinToString(" ")}")
+            println()
+            println("!!!!! $testFunc: working strategy found for ipv4 $domain : nfqws2 ${firstSuccess.strategyArgs.joinToString(" ")} !!!!!")
+            println()
+            summaryReports.add("$testFunc ipv4 $domain : nfqws2 ${firstSuccess.strategyArgs.joinToString(" ")}")
         } else {
-            println("  no working strategy found for $name")
+            println()
+            println("$testFunc: nfqws2 strategy for ipv4 $domain not found")
+            println()
+            summaryReports.add("$testFunc ipv4 $domain : nfqws2 not working")
         }
     }
+
+    // --- Общая SUMMARY ---
+    println()
+    println("* SUMMARY")
+    for (report in summaryReports) {
+        println(report)
+    }
+    println()
+    println("Please note this SUMMARY does not guarantee a magic pill for you to copy/paste and be happy.")
+    println("Understanding how strategies work is very desirable.")
+    println("This knowledge allows to understand better which strategies to prefer and which to avoid if possible, how to combine strategies.")
+    println("Blockcheck does it's best to prioritize good strategies but it's not bullet-proof.")
+    println("It was designed not as magic pill maker but as a DPI bypass test tool.")
 }

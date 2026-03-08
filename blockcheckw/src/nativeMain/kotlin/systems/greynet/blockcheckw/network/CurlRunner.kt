@@ -91,7 +91,16 @@ fun interpretCurlResult(result: CurlResult, domain: String): CurlVerdict = when 
 
 fun verdictToString(verdict: CurlVerdict): String = when (verdict) {
     is CurlVerdict.Available -> "!!!!! AVAILABLE !!!!!"
-    is CurlVerdict.SuspiciousRedirect -> "suspicious redirection ${verdict.code} to: ${verdict.location}"
+    is CurlVerdict.SuspiciousRedirect -> "suspicious redirection ${verdict.code} to : ${verdict.location}"
     is CurlVerdict.ServerReceivesFakes -> "http code 400. likely the server receives fakes."
-    is CurlVerdict.Unavailable -> "UNAVAILABLE (curl exit code=${verdict.curlExitCode})"
+    is CurlVerdict.Unavailable -> "UNAVAILABLE code=${verdict.curlExitCode}"
+}
+
+fun baselineVerdictToString(verdict: CurlVerdict): String = when (verdict) {
+    is CurlVerdict.Available -> "!!!!! AVAILABLE !!!!!"
+    is CurlVerdict.SuspiciousRedirect ->
+        "suspicious redirection ${verdict.code} to : ${verdict.location}\nUNAVAILABLE"
+    is CurlVerdict.ServerReceivesFakes ->
+        "http code 400. likely the server receives fakes.\nUNAVAILABLE"
+    is CurlVerdict.Unavailable -> "UNAVAILABLE code=${verdict.curlExitCode}"
 }

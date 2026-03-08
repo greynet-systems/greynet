@@ -18,6 +18,12 @@ enum class Protocol(val port: Int) {
     HTTPS_TLS13(443),
 }
 
+fun Protocol.toTestFunc(): String = when (this) {
+    Protocol.HTTP -> "curl_test_http"
+    Protocol.HTTPS_TLS12 -> "curl_test_https_tls12"
+    Protocol.HTTPS_TLS13 -> "curl_test_https_tls13"
+}
+
 data class StrategyTestParams(
     val domain: String,
     val strategyArgs: List<String>,
@@ -82,10 +88,7 @@ fun testStrategy(params: StrategyTestParams): Either<StrategyTestError, Strategy
 }
 
 fun strategyTestResultToString(result: StrategyTestResult): String = when (result) {
-    is StrategyTestResult.Success ->
-        "!!!!! AVAILABLE with strategy: ${result.strategy.joinToString(" ")} !!!!!"
-    is StrategyTestResult.Failed ->
-        "FAILED: ${verdictToString(result.verdict)}"
-    is StrategyTestResult.Error ->
-        "ERROR: ${result.reason}"
+    is StrategyTestResult.Success -> "!!!!! AVAILABLE !!!!!"
+    is StrategyTestResult.Failed -> verdictToString(result.verdict)
+    is StrategyTestResult.Error -> "ERROR: ${result.reason}"
 }

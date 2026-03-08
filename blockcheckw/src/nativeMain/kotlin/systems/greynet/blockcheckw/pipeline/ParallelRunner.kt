@@ -24,6 +24,7 @@ fun runParallel(
     strategies: List<List<String>>,
     ips: List<String>,
     config: ParallelConfig = ParallelConfig(),
+    testFunc: String = protocol.toTestFunc(),
 ): List<StrategyResult> {
     val slots = (0 until config.workerCount).map { i ->
         val portStart = config.baseLocalPort + i * PORTS_PER_WORKER
@@ -66,11 +67,11 @@ fun runParallel(
 
             for (r in batchResults) {
                 results.add(r)
-                println("  [worker] ${r.strategyArgs.joinToString(" ")}")
+                println("- $testFunc ipv4 $domain : nfqws2 ${r.strategyArgs.joinToString(" ")}")
                 r.result.fold(
-                    ifLeft = { error -> println("    ERROR: ${strategyTestErrorToString(error)}") },
+                    ifLeft = { error -> println("ERROR: ${strategyTestErrorToString(error)}") },
                     ifRight = { testResult ->
-                        println("    ${strategyTestResultToString(testResult)}")
+                        println(strategyTestResultToString(testResult))
                     },
                 )
             }
