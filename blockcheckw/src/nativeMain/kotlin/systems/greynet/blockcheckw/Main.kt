@@ -114,7 +114,9 @@ fun main(args: Array<String>) {
         return
     }
 
-    val parallelConfig = ParallelConfig(workerCount = 16) // TODO: поменять на 4 для aarch64
+    // FIXME: фриз на 10К стратегиях(laptop), вне зависимости от количества воркеров
+    // FIXME: фриз на 93 стратегии(коробка)
+    val parallelConfig = ParallelConfig(workerCount = 4) // FIXME увеличение количества воркеров != ускорение strat/sec
 
     for ((protocol, testFunc, _) in blockedProtocols) {
         val candidates = generateStrategies(protocol)

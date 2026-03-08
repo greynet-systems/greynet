@@ -4,6 +4,7 @@ import arrow.core.Either
 import kotlinx.coroutines.*
 import systems.greynet.blockcheckw.firewall.*
 import systems.greynet.blockcheckw.network.*
+import systems.greynet.blockcheckw.system.ProgressBar
 
 private const val PORTS_PER_WORKER = 10
 
@@ -44,6 +45,8 @@ fun runParallel(
 
     val results = mutableListOf<StrategyResult>()
 
+    val progressBar = ProgressBar(strategies.size)
+
     try {
         // Разбиваем стратегии на batch-и по workerCount
         val batches = strategies.chunked(config.workerCount)
@@ -65,6 +68,7 @@ fun runParallel(
                 }.awaitAll()
             }
 
+            progressBar.clear()
             for (r in batchResults) {
                 results.add(r)
                 println("- $testFunc ipv4 $domain : nfqws2 ${r.strategyArgs.joinToString(" ")}")
@@ -75,7 +79,11 @@ fun runParallel(
                     },
                 )
             }
+            progressBar.update(batchResults.size)
+            progressBar.render()
         }
+
+        progressBar.clear()
     } finally {
         dropTable()
     }
