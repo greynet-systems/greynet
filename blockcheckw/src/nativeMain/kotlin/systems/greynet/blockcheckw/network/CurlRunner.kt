@@ -33,7 +33,7 @@ private fun localPortArgs(localPort: String?): List<String> =
 fun curlTestHttp(domain: String, localPort: String? = null, maxTime: String = "2"): CurlResult {
     val cmd = listOf(
         "curl", "-SsD", "-", "-A", "Mozilla/5.0",
-        "--max-time", maxTime,
+        "--connect-timeout", maxTime, "--max-time", maxTime,
         "-o", "/dev/null",
     ) + localPortArgs(localPort) + listOf("http://$domain")
     return toCurlResult(runProcess(cmd))
@@ -42,7 +42,7 @@ fun curlTestHttp(domain: String, localPort: String? = null, maxTime: String = "2
 fun curlTestHttpsTls12(domain: String, localPort: String? = null, maxTime: String = "2"): CurlResult {
     val cmd = listOf(
         "curl", "-Ss", "-A", "Mozilla/5.0",
-        "--max-time", maxTime,
+        "--connect-timeout", maxTime, "--max-time", maxTime,
         "--tlsv1.2", "--tls-max", "1.2",
         "-o", "/dev/null",
     ) + localPortArgs(localPort) + listOf("https://$domain")
@@ -52,7 +52,7 @@ fun curlTestHttpsTls12(domain: String, localPort: String? = null, maxTime: Strin
 fun curlTestHttpsTls13(domain: String, localPort: String? = null, maxTime: String = "2"): CurlResult {
     val cmd = listOf(
         "curl", "-Ss", "-A", "Mozilla/5.0",
-        "--max-time", maxTime,
+        "--connect-timeout", maxTime, "--max-time", maxTime,
         "--tlsv1.3", "--tls-max", "1.3",
         "-o", "/dev/null",
     ) + localPortArgs(localPort) + listOf("https://$domain")

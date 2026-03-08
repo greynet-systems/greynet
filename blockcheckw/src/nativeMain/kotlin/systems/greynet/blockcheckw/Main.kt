@@ -22,6 +22,21 @@ fun main(args: Array<String>) {
         return
     }
 
+    if ("--test-parallel-real" in args) {
+        val idx = args.indexOf("--test-parallel-real")
+        val workers = args.getOrNull(idx + 1)?.toIntOrNull() ?: 4
+        val maxStrategies = args.getOrNull(idx + 2)?.toIntOrNull() ?: 200
+        val protocol = when (args.getOrNull(idx + 3)) {
+            "tls12" -> Protocol.HTTPS_TLS12
+            "tls13" -> Protocol.HTTPS_TLS13
+            else -> Protocol.HTTP
+        }
+        requireRoot(args)
+        checkAlreadyRunning()
+        runStressTestReal(workers, maxStrategies, protocol)
+        return
+    }
+
     if ("--test-parallel" in args) {
         val idx = args.indexOf("--test-parallel")
         val workers = args.getOrNull(idx + 1)?.toIntOrNull() ?: 4
