@@ -1,7 +1,5 @@
 package systems.greynet.blockcheckw
 
-import kotlin.test.assertEquals
-
 fun checkStrategies(
     strategiesToCheck: List<Strategy>,
     workingStrategies: List<Strategy>
@@ -26,20 +24,27 @@ fun validStrategyWithNfqws2(strategyToCheck: Strategy): Boolean {
     return true
 }
 
+// TODO: переписать на регулярочки?
+// !!! TODO: в одной стратегии может быть несколько --lua-desync !!!
 fun parseStrategy(str: String): Strategy {
-    val payload = str.lastIndexOf("--payload=")
-    val s = str.drop(payload)
-    return Strategy(
-        payload = Payload(s),
-        action = Action(""),
-        position = Position(""),
-        evasion = Evasion(""),
-        Modifiers = Modifiers(""),
-        Stage2Payload = Stage2Payload(s),
-    )
-}
+    val payloadFlagIndex = str.indexOf("--payload=")
+    val dropPayload = str.drop(payloadFlagIndex + 10)
+    val payloadValueEndIndex = dropPayload.indexOf(" ")
+    val payloadValue = dropPayload.take(payloadValueEndIndex)
 
-fun main() {
+    val luaDesyncIndex = str.indexOf("--lua-desync=")
+    val luaDesyncValueHead = str.drop(luaDesyncIndex + 13)
+    val luaDesyncValueHeadEnd = luaDesyncValueHead.indexOf(" ")
+    val luaDesyncValues = luaDesyncValueHead.substring(0, luaDesyncValueHeadEnd).split(":")
+
+    return Strategy(
+        payload = Payload(payloadValue),
+        action = Action(luaDesyncValues[0]),
+        position = Position(luaDesyncValues[1]),
+        evasion = Evasion(luaDesyncValues[2]),
+        modifiers = Modifiers(luaDesyncValues[3]),
+        Stage2Payload = Stage2Payload("pktmod:ip_ttl=1"),
+    )
 }
 
 sealed interface TreeLevel
@@ -60,6 +65,6 @@ data class Strategy(
     val action: Action,
     val position: Position,
     val evasion: Evasion,
-    val Modifiers: Modifiers,
+    val modifiers: Modifiers,
     val Stage2Payload: Stage2Payload,
 )
