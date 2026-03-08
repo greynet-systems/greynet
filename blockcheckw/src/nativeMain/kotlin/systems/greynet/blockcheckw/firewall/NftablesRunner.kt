@@ -1,14 +1,25 @@
+@file:OptIn(ExperimentalForeignApi::class)
+
 package systems.greynet.blockcheckw.firewall
 
 import arrow.core.Either
 import arrow.core.getOrElse
 import arrow.core.left
 import arrow.core.right
+import kotlinx.cinterop.*
+import platform.posix.*
 import systems.greynet.blockcheckw.system.ProcessResult
 import systems.greynet.blockcheckw.system.runProcess
 
 private const val TABLE_NAME = "zapret"
 private const val CHAIN_NAME = "postnat"
+
+// nftMutex сериализует nft-вызовы: параллельные nft могут конфликтовать в ядре (netlink).
+// Порядок блокировки: nftMutex → forkMutex (внутри runProcess). Инверсии нет,
+// т.к. curl/nfqws2-потоки не берут nftMutex.
+private val nftMutex: CPointer<pthread_mutex_t> = nativeHeap.alloc<pthread_mutex_t>().apply {
+    pthread_mutex_init(ptr, null)
+}.ptr
 
 sealed interface NftablesError {
     data class CommandFailed(val command: String, val result: ProcessResult) : NftablesError
@@ -18,7 +29,12 @@ data class RuleHandle(val handle: Int)
 
 private fun runNft(args: List<String>): Either<NftablesError, ProcessResult> {
     val cmd = listOf("nft") + args
-    val result = runProcess(cmd)
+    pthread_mutex_lock(nftMutex)
+    val result = try {
+        runProcess(cmd)
+    } finally {
+        pthread_mutex_unlock(nftMutex)
+    }
     return if (result.exitCode == 0) result.right()
     else NftablesError.CommandFailed(cmd.joinToString(" "), result).left()
 }

@@ -41,9 +41,9 @@ fun executeWorker(task: WorkerTask): Either<StrategyTestError, StrategyTestResul
         usleep(50_000u) // 50ms — дать nfqws2 время на инициализацию
 
         val curlResult = when (task.protocol) {
-            Protocol.HTTP -> curlTestHttp(task.domain, localPort = task.slot.localPort, maxTime = "1")
-            Protocol.HTTPS_TLS12 -> curlTestHttpsTls12(task.domain, localPort = task.slot.localPort, maxTime = "1")
-            Protocol.HTTPS_TLS13 -> curlTestHttpsTls13(task.domain, localPort = task.slot.localPort, maxTime = "1")
+            Protocol.HTTP -> curlTestHttp(task.domain, localPort = task.slot.localPort, maxTime = "2")
+            Protocol.HTTPS_TLS12 -> curlTestHttpsTls12(task.domain, localPort = task.slot.localPort, maxTime = "2")
+            Protocol.HTTPS_TLS13 -> curlTestHttpsTls13(task.domain, localPort = task.slot.localPort, maxTime = "2")
         }
 
         val verdict = interpretCurlResult(curlResult, task.domain)
@@ -55,7 +55,10 @@ fun executeWorker(task: WorkerTask): Either<StrategyTestError, StrategyTestResul
                 StrategyTestResult.Failed(verdict)
         }
     } finally {
-        nfqws2Process.kill()
+        // Сначала удаляем nftables правило — пока nfqws2 жив и может обработать
+        // оставшиеся пакеты в queue. Иначе kill nfqws2 → пакеты в queue без обработчика →
+        // nft delete может зависнуть на netlink.
         removeRule(handle)
+        nfqws2Process.kill()
     }
 }

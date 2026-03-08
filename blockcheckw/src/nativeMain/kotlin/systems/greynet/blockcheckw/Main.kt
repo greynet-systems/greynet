@@ -81,7 +81,7 @@ fun main(args: Array<String>) {
         return
     }
 
-    val parallelConfig = ParallelConfig(workerCount = 128) // TODO: поменять на 4 для aarch64
+    val parallelConfig = ParallelConfig(workerCount = 8)
 
     for ((name, protocol, _) in blockedProtocols) {
         val candidates = generateStrategies(protocol)

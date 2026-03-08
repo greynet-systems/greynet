@@ -21,8 +21,7 @@ data class StrategyResult(
     val result: Either<StrategyTestError, StrategyTestResult>,
 )
 
-private class ThreadContext(
-    val slots: List<WorkerSlot>,
+private class SharedContext(
     val domain: String,
     val protocol: Protocol,
     val strategies: List<List<String>>,
@@ -30,6 +29,11 @@ private class ThreadContext(
     val nextIndex: AtomicInt,
     val results: Array<StrategyResult?>,
     val printMutex: CPointer<pthread_mutex_t>,
+)
+
+private class ThreadArg(
+    val slot: WorkerSlot,
+    val shared: SharedContext,
 )
 
 private fun printResult(r: StrategyResult, mutex: CPointer<pthread_mutex_t>) {
@@ -49,16 +53,15 @@ private fun printResult(r: StrategyResult, mutex: CPointer<pthread_mutex_t>) {
 
 private val threadEntry: CPointer<CFunction<(COpaquePointer?) -> COpaquePointer?>> =
     staticCFunction { arg: COpaquePointer? ->
-        val ref = arg!!.asStableRef<ThreadContext>()
-        val ctx = ref.get()
-        // НЕ вызываем ref.dispose() — время жизни управляется основным потоком
+        val ref = arg!!.asStableRef<ThreadArg>()
+        val threadArg = ref.get()
+        val slot = threadArg.slot
+        val ctx = threadArg.shared
 
         while (true) {
             val idx = ctx.nextIndex.fetchAndAdd(1)
             if (idx >= ctx.strategies.size) break
 
-            val slotIndex = idx % ctx.slots.size
-            val slot = ctx.slots[slotIndex]
             val strategyArgs = ctx.strategies[idx]
 
             val task = WorkerTask(
@@ -106,8 +109,7 @@ fun runParallel(
             val mutex = alloc<pthread_mutex_t>()
             pthread_mutex_init(mutex.ptr, null)
 
-            val ctx = ThreadContext(
-                slots = slots,
+            val shared = SharedContext(
                 domain = domain,
                 protocol = protocol,
                 strategies = strategies,
@@ -117,20 +119,22 @@ fun runParallel(
                 printMutex = mutex.ptr,
             )
 
-            val stableRef = StableRef.create(ctx)
             val threadCount = config.workerCount
+            val stableRefs = slots.map { slot ->
+                StableRef.create(ThreadArg(slot, shared))
+            }
             val threads = allocArray<ULongVar>(threadCount)
 
             for (i in 0 until threadCount) {
                 val threadPtr = (threads + i)!!
-                pthread_create(threadPtr, null, threadEntry, stableRef.asCPointer())
+                pthread_create(threadPtr, null, threadEntry, stableRefs[i].asCPointer())
             }
 
             for (i in 0 until threadCount) {
                 pthread_join(threads[i], null)
             }
 
-            stableRef.dispose()
+            stableRefs.forEach { it.dispose() }
             pthread_mutex_destroy(mutex.ptr)
         }
     } finally {

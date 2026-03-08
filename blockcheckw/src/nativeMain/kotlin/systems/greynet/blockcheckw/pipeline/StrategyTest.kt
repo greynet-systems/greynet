@@ -76,8 +76,8 @@ fun testStrategy(params: StrategyTestParams): Either<StrategyTestError, Strategy
                 StrategyTestResult.Failed(verdict)
         }
     } finally {
-        nfqws2Process.kill()
         unprepare()
+        nfqws2Process.kill()
     }
 }
 
