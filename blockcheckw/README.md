@@ -1,7 +1,21 @@
-#### Blockcheck Wrapper
+#### Blockcheck Wrapper (abandoned)
 
-Замена классическому `bash`-скрипту `blockcheck2.sh` от `zapret2` для проверки блокировок.
-Kotlin/Native, без JVM — один бинарник для x86_64 и arm64 (NanoPi R3S).
+> **Статус: abandoned.** Переписывается на Rust в отдельном репозитории — [blockcheck2w](https://github.com/greynet-systems/blockcheck2w).
+>
+> **Почему:** Kotlin/Native плохо подходит для задач, где ядро логики — блокирующие системные вызовы
+> (fork/exec, nftables, pipe/waitpid). K/N рантайм (GC, futex-based thread pool) конфликтует
+> с POSIX-параллельностью: deadlock при `execvp` после `fork()` в многопоточном контексте,
+> невозможность использовать `withTimeoutOrNull` на длительных прогонах, glibc/musl несовместимость
+> при деплое на OpenWrt. Каждая проблема решалась обходом (аллокация argv до fork, диапазоны портов,
+> симлинки libc), но итоговое решение хрупкое и не масштабируется на все платформы zapret2.
+>
+> **Что ценного:** архитектура sport-изоляции воркеров (per-worker source port range + NFQUEUE + nfqws2)
+> полностью переносится в Rust-реализацию. Парсер стратегий, логика CurlVerdict, zero-fork мониторинг —
+> всё переиспользуется.
+
+---
+
+Оригинальная реализация — Kotlin/Native, без JVM — один бинарник для x86_64 и arm64 (NanoPi R3S).
 
 ## Архитектура
 
